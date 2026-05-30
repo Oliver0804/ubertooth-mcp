@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ubertooth-mcp"
+version = "0.0.1"
+description = "MCP server exposing Ubertooth One (BLE / Bluetooth Classic / 2.4GHz spectrum) sniffing to LLM agents."
+requires-python = ">=3.10"
+readme = "README.md"
+authors = [{ name = "Oliver0804" }]
+
+# Pure-stdlib wrapper around the compiled `ubertooth-*` host CLI tools — no
+# Python binding for libubertooth exists, so the heavy lifting is done by
+# subprocess. The only hard runtime dep is the MCP framework itself; tshark is
+# an optional external binary used for pcap decode tools.
+dependencies = [
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+ubertooth-mcp = "ubertooth_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
