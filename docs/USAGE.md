@@ -88,9 +88,11 @@ pcap_summary(<id>)     → 用 tshark 解碼
 | `raw_dump_start` | `modulation=le\|classic` | 擷取原始位元/符號流到 .bin（低階） |
 | `afh_map` | `lap, uap, duration_seconds=15` | 偵測某 piconet 的 AFH 跳頻圖譜 |
 | `capture_status` / `capture_stop` / `list_captures` | — | 管理當前 session |
-| `pcap_summary` | `id_or_path` | BLE 封包數、PDU 型別統計、廣播者排行 |
-| `ble_advertisers` | `id_or_path` | 唯一廣播者清單（含 company id / 名稱） |
-| `dissect_packets` | `id_or_path, display_filter, limit=100` | 逐包記錄，可帶 Wireshark display filter |
+| `pcap_summary` | `id_or_path, valid_crc_only=True` | BLE 封包數、PDU 型別統計、廣播者排行 |
+| `ble_advertisers` | `id_or_path, valid_crc_only=True` | 唯一廣播者清單（含 company id / 名稱） |
+| `dissect_packets` | `id_or_path, display_filter, limit=100, valid_crc_only=True` | 逐包記錄，可帶 Wireshark display filter |
+
+> **`valid_crc_only`（預設 True）**：Ubertooth 在射頻層會連同有位元錯誤的封包一起收，這些壞封包會產生「幽靈廣播者」（真實 MAC 的位元翻轉變體）。預設只計入 **CRC 正確**的封包（wireshark 用廣播 PDU 固定的 CRCInit 驗證，filter = `!btle.crc.incorrect`），實測可把唯一廣播者從 224 降到 105。想看含錯誤的原始數據時設 `valid_crc_only=False`。
 
 ---
 

@@ -287,28 +287,38 @@ def list_captures() -> list:
 
 @mcp.tool()
 @_safe
-def pcap_summary(id_or_path: str) -> dict:
-    """BLE packet count, advertising PDU-type breakdown and top advertiser MACs."""
-    return tshark_mod.pcap_summary(id_or_path)
+def pcap_summary(id_or_path: str, valid_crc_only: bool = True) -> dict:
+    """BLE packet count, advertising PDU-type breakdown and top advertiser MACs.
+
+    ``valid_crc_only`` (default True) excludes bit-errored packets — set False
+    to see the raw counts including CRC failures.
+    """
+    return tshark_mod.pcap_summary(id_or_path, valid_crc_only=valid_crc_only)
 
 
 @mcp.tool()
 @_safe
-def ble_advertisers(id_or_path: str) -> dict:
-    """Unique BLE advertisers in a capture with packet counts and company ids."""
-    return tshark_mod.ble_advertisers(id_or_path)
+def ble_advertisers(id_or_path: str, valid_crc_only: bool = True) -> dict:
+    """Unique BLE advertisers in a capture with packet counts and company ids.
+
+    ``valid_crc_only`` (default True) drops phantom advertisers produced by
+    bit-errored packets — set False to see every address as captured.
+    """
+    return tshark_mod.ble_advertisers(id_or_path, valid_crc_only=valid_crc_only)
 
 
 @mcp.tool()
 @_safe
 def dissect_packets(id_or_path: str, display_filter: str | None = None,
-                    limit: int = 100) -> dict:
+                    limit: int = 100, valid_crc_only: bool = True) -> dict:
     """Per-packet records from a capture via tshark, with optional display filter.
 
     Example filters: ``btle.advertising_header.pdu_type == 0x05`` (CONNECT_IND),
-    ``btle.advertising_address == 11:22:33:44:55:66``.
+    ``btle.advertising_address == 11:22:33:44:55:66``. ``valid_crc_only``
+    (default True) excludes bit-errored packets.
     """
-    return tshark_mod.dissect(id_or_path, display_filter=display_filter, limit=limit)
+    return tshark_mod.dissect(id_or_path, display_filter=display_filter,
+                              limit=limit, valid_crc_only=valid_crc_only)
 
 
 # - entrypoint ---------------------------------------------------------------

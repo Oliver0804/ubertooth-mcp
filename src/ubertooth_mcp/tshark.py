@@ -47,6 +47,21 @@ def resolve_pcap(id_or_path: str) -> Path:
     )
 
 
+# Ubertooth captures bit-errored packets too; wireshark validates the CRC of
+# advertising PDUs (fixed CRCInit) and tags bad ones with btle.crc.incorrect.
+# Filtering those out removes "phantom" advertisers that are really bit-flipped
+# copies of real ones. Note: the btle_rf phdr crc flags are NOT set by the
+# 2020-12-R1 firmware, so we rely on wireshark's own check, not the phdr.
+_CRC_GOOD = "!btle.crc.incorrect"
+
+
+def _with_crc(base: str | None, valid_crc_only: bool) -> str | None:
+    """AND the CRC-good filter onto an optional base display filter."""
+    if not valid_crc_only:
+        return base
+    return f"({base}) && {_CRC_GOOD}" if base else _CRC_GOOD
+
+
 def _run_fields(pcap: Path, fields: list[str], display_filter: str | None,
                 limit: int | None) -> list[list[str]]:
     if not _have_tshark():
@@ -66,13 +81,17 @@ def _run_fields(pcap: Path, fields: list[str], display_filter: str | None,
     return rows
 
 
-def pcap_summary(id_or_path: str) -> dict:
-    """Packet count, BLE advertising PDU-type breakdown and top advertiser MACs."""
+def pcap_summary(id_or_path: str, valid_crc_only: bool = True) -> dict:
+    """Packet count, BLE advertising PDU-type breakdown and top advertiser MACs.
+
+    With ``valid_crc_only`` (default) only CRC-valid packets are counted, which
+    drops bit-errored packets and the phantom advertisers they produce.
+    """
     pcap = resolve_pcap(id_or_path)
     rows = _run_fields(
         pcap,
         ["btle.advertising_header.pdu_type", "btle.advertising_address"],
-        display_filter=None, limit=None,
+        display_filter=_with_crc(None, valid_crc_only), limit=None,
     )
     pdu = Counter()
     adv = Counter()
@@ -85,20 +104,26 @@ def pcap_summary(id_or_path: str) -> dict:
             adv[addr] += 1
     return {
         "pcap_path": str(pcap),
+        "valid_crc_only": valid_crc_only,
         "total_packets": len(rows),
         "pdu_type_counts": dict(pdu.most_common()),
         "top_advertisers": [{"address": a, "packets": c} for a, c in adv.most_common(20)],
     }
 
 
-def ble_advertisers(id_or_path: str) -> dict:
-    """Unique BLE advertisers with packet counts and (where present) company id."""
+def ble_advertisers(id_or_path: str, valid_crc_only: bool = True) -> dict:
+    """Unique BLE advertisers with packet counts and (where present) company id.
+
+    With ``valid_crc_only`` (default) only CRC-valid packets count, removing
+    phantom advertisers that are bit-flipped copies of real addresses.
+    """
     pcap = resolve_pcap(id_or_path)
     rows = _run_fields(
         pcap,
         ["btle.advertising_address", "btcommon.eir_ad.entry.company_id",
          "btcommon.eir_ad.entry.device_name"],
-        display_filter="btle.advertising_address", limit=None,
+        display_filter=_with_crc("btle.advertising_address", valid_crc_only),
+        limit=None,
     )
     seen: dict[str, dict] = {}
     for row in rows:
@@ -122,16 +147,18 @@ def ble_advertisers(id_or_path: str) -> dict:
 
 
 def dissect(id_or_path: str, display_filter: str | None = None,
-            limit: int = 100) -> dict:
+            limit: int = 100, valid_crc_only: bool = True) -> dict:
     """Per-packet records via ``tshark -T json``.
 
     ``display_filter`` takes Wireshark display-filter syntax, e.g.
     ``btle.advertising_header.pdu_type == 0x05`` (CONNECT_IND only), or
-    ``btle.advertising_address == 11:22:33:44:55:66``.
+    ``btle.advertising_address == 11:22:33:44:55:66``. With ``valid_crc_only``
+    (default) bit-errored packets are excluded.
     """
     pcap = resolve_pcap(id_or_path)
     if not _have_tshark():
         raise RuntimeError("tshark not found — install wireshark/tshark to use decode tools")
+    display_filter = _with_crc(display_filter, valid_crc_only)
     args = [TSHARK_EXE, "-r", str(pcap), "-T", "json",
             "-e", "frame.number", "-e", "frame.time_relative",
             "-e", "btle.advertising_address", "-e", "_ws.col.info",
