@@ -75,7 +75,7 @@ pcap_summary(<id>)     → 用 tshark 解碼
 ### BLE 嗅探（session）
 | 工具 | 參數 | 用途 |
 |------|------|------|
-| `ble_sniff_start` | `mode, target_mac, adv_channel` | `mode`：`advertising`(只看廣播) / `follow`(跟隨連線) / `promiscuous`(嗅探既有連線)。`target_mac` 鎖定單一裝置；`adv_channel` 37/38/39 |
+| `ble_sniff_start` | `mode, target_mac, adv_channel, crc_verify=False` | `mode`：`advertising`(只看廣播) / `follow`(跟隨連線) / `promiscuous`(嗅探既有連線)。`target_mac` 鎖定單一裝置；`adv_channel` 37/38/39；`crc_verify=True` 開**裝置端** CRC 過濾(-v1)，源頭丟掉壞包(需 git-c9dfdbd*+ 韌體，見 GSG PR #550；舊韌體為無害 no-op) |
 
 ### Bluetooth Classic / BR-EDR（session）
 | 工具 | 參數 | 用途 |

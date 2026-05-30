@@ -137,6 +137,7 @@ def ble_sniff_start(
     mode: Literal["advertising", "follow", "promiscuous"] = "advertising",
     target_mac: str | None = None,
     adv_channel: Literal[37, 38, 39] = 37,
+    crc_verify: bool = False,
 ) -> dict:
     """Start a BLE capture (ubertooth-btle) writing a pcap. Returns a session id.
 
@@ -148,6 +149,14 @@ def ble_sniff_start(
     A single Ubertooth listens on ONE advertising channel at a time, so the
     CONNECT_IND that starts a connection may land on a channel you're not on —
     retries are normal. ``target_mac`` is dotted hex, e.g. '22:44:66:88:aa:cc'.
+
+    ``crc_verify`` (default False) enables *on-device* CRC filtering (-v1): the
+    Ubertooth drops bit-errored packets at the source, eliminating phantom
+    advertisers and saving USB bandwidth. Requires firmware that honours -v1 in
+    LE sniffing (greatscottgadgets/ubertooth PR #550 / git-c9dfdbd*+); on stock
+    2020-12-R1 it is a harmless no-op. Leaving it False captures everything and
+    lets the decode-time ``valid_crc_only`` filter clean up non-destructively.
+
     Stop with capture_stop to flush the pcap; decode with pcap_summary.
     """
     _ensure_idle()
@@ -160,7 +169,11 @@ def ble_sniff_start(
     args = [mode_flag, f"-A{adv_channel}", "-q", str(out_path)]
     if target_mac:
         args.append(f"-t{target_mac}/48")
-    label = f"ble-{mode} ch{adv_channel}" + (f" target={target_mac}" if target_mac else "")
+    if crc_verify:
+        args.append("-v1")
+    label = (f"ble-{mode} ch{adv_channel}"
+             + (f" target={target_mac}" if target_mac else "")
+             + (" crc-verify" if crc_verify else ""))
 
     capture.CAPTURES_DIR.mkdir(parents=True, exist_ok=True)
     capture.start("ubertooth-btle", args, label=label,
